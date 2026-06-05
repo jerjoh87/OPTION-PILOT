@@ -100,7 +100,7 @@ export default function Dashboard() {
     <main className="page">
       <div className="shell">
         <header className="header">
-          <div className="brand"><div className="logo">OP</div><div><h1>Option Pilot Dashboard</h1><p className="subtle">Interactive AI options decision-support terminal using safe demo data.</p><nav className="nav"><Link href="/">Analyzer</Link><Link href="/watchlist">Watchlist Scanner</Link><Link href="/market-radar">Market Radar</Link><Link href="/journal">Journal</Link><Link href="/pricing">Pricing</Link></nav></div></div>
+          <div className="brand"><div className="logo">OP</div><div><h1>Option Pilot Dashboard</h1><p className="subtle">Interactive AI options decision-support terminal using safe demo data.</p><nav className="nav"><Link href="/">Analyzer</Link><Link href="/charts">Charts</Link><Link href="/watchlist">Watchlist Scanner</Link><Link href="/market-radar">Market Radar</Link><Link href="/journal">Journal</Link><Link href="/pricing">Pricing</Link></nav></div></div>
           <div className="badges"><span className="badge">Using demo data</span><span className="badge">Live trading disabled</span></div>
         </header>
         <div className="main">
