@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Option Pilot",
-  description: "Next.js App Router scaffold for Vercel deployment."
+  description: "AI options decision-support dashboard. Educational only."
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

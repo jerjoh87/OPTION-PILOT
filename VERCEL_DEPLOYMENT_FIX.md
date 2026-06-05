@@ -6,12 +6,4 @@ The Next.js app lives at the repository root.
 
 - **Root Directory:** `.`
 
-## Why the build failed
-
-Vercel was looking in the wrong folder and could not see the App Router directory.
-
-## Current scripts
-
-- `npm run dev` -> `next dev`
-- `npm run build` -> `next build`
-- `npm run start` -> `next start`
+The deployed dashboard is intentionally self-contained so Vercel can build it reliably while the larger app modules are synced in later.
