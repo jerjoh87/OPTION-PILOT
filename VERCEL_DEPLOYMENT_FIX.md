@@ -1,9 +1,5 @@
 # Vercel Deployment Fix
 
-The Next.js app lives at the repository root.
+The Next.js app lives at the repository root. Vercel Root Directory should be `.`.
 
-## Correct Vercel setting
-
-- **Root Directory:** `.`
-
-The deployed dashboard is intentionally self-contained so Vercel can build it reliably while the larger app modules are synced in later.
+The current beta surface is intentionally self-contained and uses demo data so production builds remain stable while real API integrations are connected.
