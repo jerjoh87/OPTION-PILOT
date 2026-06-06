@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type Direction = "Bullish" | "Bearish" | "Neutral";
+type MarketData = { ticker: string; price: number; dataMode: "live" | "demo"; provider: string; warning?: string; asOf?: string };
 
 type Analysis = {
   ticker: string;
@@ -21,6 +22,9 @@ type Analysis = {
   contract: string;
   premium: number;
   scores: Record<string, number>;
+  dataMode: "live" | "demo";
+  provider: string;
+  warning?: string;
 };
 
 function seed(ticker: string) {
@@ -31,10 +35,10 @@ function money(value: number) {
   return `$${value.toFixed(2)}`;
 }
 
-function analyzeTicker(raw: string): Analysis {
+function analyzeTicker(raw: string, market?: MarketData | null): Analysis {
   const ticker = (raw || "AAPL").toUpperCase().replace(/[^A-Z]/g, "").slice(0, 5) || "AAPL";
   const s = seed(ticker);
-  const price = 80 + (s % 260) + (s % 17) / 10;
+  const price = market?.price ?? 80 + (s % 260) + (s % 17) / 10;
   const trend = 48 + (s % 43);
   const momentum = 44 + ((s * 3) % 48);
   const volume = 42 + ((s * 7) % 50);
@@ -70,17 +74,33 @@ function analyzeTicker(raw: string): Analysis {
     rr,
     contract: `${ticker} 2026-07-17 ${strike} ${bullish ? "CALL" : "PUT"}`,
     premium: Math.max(.65, price * (.018 + (s % 8) / 1000)),
-    scores: { Trend: trend, Momentum: momentum, Volume: volume, "Support/Resistance": sr, Liquidity: liquidity, "IV Risk": ivRisk, "Spread Risk": spreadRisk, Final: confidence }
+    scores: { Trend: trend, Momentum: momentum, Volume: volume, "Support/Resistance": sr, Liquidity: liquidity, "IV Risk": ivRisk, "Spread Risk": spreadRisk, Final: confidence },
+    dataMode: market?.dataMode ?? "demo",
+    provider: market?.provider ?? "demo",
+    warning: market?.warning
   };
 }
 
 export default function Dashboard() {
   const [input, setInput] = useState("AAPL");
   const [ticker, setTicker] = useState("AAPL");
+  const [market, setMarket] = useState<MarketData | null>(null);
+  const [loadingMarket, setLoadingMarket] = useState(false);
   const [recent, setRecent] = useState(["AAPL", "NVDA", "MSFT", "TSLA"]);
   const [saved, setSaved] = useState(false);
-  const analysis = useMemo(() => analyzeTicker(ticker), [ticker]);
-  const watchlist = useMemo(() => ["NVDA", "MSFT", "SPY", "TSLA", ticker].map(analyzeTicker).sort((a, b) => b.confidence - a.confidence).slice(0, 5), [ticker]);
+  const analysis = useMemo(() => analyzeTicker(ticker, market), [ticker, market]);
+  const watchlist = useMemo(() => ["NVDA", "MSFT", "SPY", "TSLA", ticker].map((item) => analyzeTicker(item)).sort((a, b) => b.confidence - a.confidence).slice(0, 5), [ticker]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingMarket(true);
+    fetch(`/api/market/${ticker}?timeframe=15m`, { cache: "no-store" })
+      .then((response) => response.json())
+      .then((data: MarketData) => { if (!cancelled) setMarket(data); })
+      .catch(() => { if (!cancelled) setMarket(null); })
+      .finally(() => { if (!cancelled) setLoadingMarket(false); });
+    return () => { cancelled = true; };
+  }, [ticker]);
 
   function run(next = input) {
     const clean = next.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 5) || "AAPL";
@@ -100,8 +120,8 @@ export default function Dashboard() {
     <main className="page">
       <div className="shell">
         <header className="header">
-          <div className="brand"><div className="logo">OP</div><div><h1>Option Pilot Dashboard</h1><p className="subtle">Interactive AI options decision-support terminal using safe demo data.</p><nav className="nav"><Link href="/">Analyzer</Link><Link href="/charts">Charts</Link><Link href="/watchlist">Watchlist Scanner</Link><Link href="/market-radar">Market Radar</Link><Link href="/journal">Journal</Link><Link href="/pricing">Pricing</Link></nav></div></div>
-          <div className="badges"><span className="badge">Using demo data</span><span className="badge">Live trading disabled</span></div>
+          <div className="brand"><div className="logo">OP</div><div><h1>Option Pilot Dashboard</h1><p className="subtle">Interactive AI options decision-support terminal with Alpaca stock data when configured.</p><nav className="nav"><Link href="/">Analyzer</Link><Link href="/charts">Charts</Link><Link href="/watchlist">Watchlist Scanner</Link><Link href="/market-radar">Market Radar</Link><Link href="/journal">Journal</Link><Link href="/pricing">Pricing</Link></nav></div></div>
+          <div className="badges"><span className="badge">{loadingMarket ? "Checking market data" : analysis.dataMode === "live" ? "Live Alpaca data" : "Using demo data"}</span><span className="badge">Live trading disabled</span></div>
         </header>
         <div className="main">
           <aside className="sidebar">
@@ -110,8 +130,9 @@ export default function Dashboard() {
             <section className="card"><div className="kicker">Watchlist</div><div className="contracts">{watchlist.map((item) => <button className="contract" key={item.ticker} onClick={() => run(item.ticker)}><span><strong>{item.ticker}</strong><p className="subtle">{item.setup}</p></span><strong className={item.confidence >= 75 ? "green" : "amber"}>{item.confidence}</strong></button>)}</div></section>
           </aside>
           <section className="content">
-            <section className="panel"><div className="kicker">Analysis result</div><div className="row" style={{alignItems:"end",justifyContent:"space-between"}}><div><div className="ticker">{analysis.ticker}</div><div className="price">{money(analysis.price)}</div></div><div className="badges"><span className="badge">{analysis.direction}</span><span className="badge">{analysis.rating}</span></div></div><div className="stats" style={{marginTop:18}}>{[["Entry Zone", `${money(analysis.entryLow)} - ${money(analysis.entryHigh)}`, "blue"],["Stop Loss", money(analysis.stop), "red"],["Target 1", money(analysis.target1), "green"],["Target 2", money(analysis.target2), "green"],["Risk/Reward", `1 : ${analysis.rr.toFixed(1)}`, "amber"],["Confidence", `${analysis.confidence} / 100`, "green"],["Trade Rating", analysis.rating, "green"],["Best Contract", analysis.contract, "blue"]].map(([label,value,tone]) => <div className="stat" key={label}><div className="label">{label}</div><div className={`value ${tone}`}>{value}</div></div>)}</div></section>
-            <section className="panel"><div className="kicker">AI breakdown</div><p className="explain">{analysis.ticker} is showing a {analysis.direction.toLowerCase()} educational probability profile. The setup is classified as {analysis.setup.toLowerCase()} with a confidence score of {analysis.confidence}/100. Review the entry zone, stop, liquidity, and market context before making any decision. This is not financial advice and does not guarantee an outcome.</p><div className="actions" style={{marginTop:14}}><button className="primary" onClick={saveIdea}>{saved ? "Saved" : "Save to Journal"}</button><Link className="pill" href="/journal">Open Journal</Link></div></section>
+            {analysis.warning ? <section className="panel"><div className="kicker">Market data status</div><p className="explain">{analysis.warning}</p></section> : null}
+            <section className="panel"><div className="kicker">Analysis result</div><div className="row" style={{alignItems:"end",justifyContent:"space-between"}}><div><div className="ticker">{analysis.ticker}</div><div className="price">{money(analysis.price)}</div><p className="subtle">Stock price source: {analysis.provider === "alpaca" ? "Alpaca market data" : "Demo fallback"}</p></div><div className="badges"><span className="badge">{analysis.direction}</span><span className="badge">{analysis.rating}</span></div></div><div className="stats" style={{marginTop:18}}>{[["Entry Zone", `${money(analysis.entryLow)} - ${money(analysis.entryHigh)}`, "blue"],["Stop Loss", money(analysis.stop), "red"],["Target 1", money(analysis.target1), "green"],["Target 2", money(analysis.target2), "green"],["Risk/Reward", `1 : ${analysis.rr.toFixed(1)}`, "amber"],["Confidence", `${analysis.confidence} / 100`, "green"],["Trade Rating", analysis.rating, "green"],["Best Contract", analysis.contract, "blue"]].map(([label,value,tone]) => <div className="stat" key={label}><div className="label">{label}</div><div className={`value ${tone}`}>{value}</div></div>)}</div></section>
+            <section className="panel"><div className="kicker">AI breakdown</div><p className="explain">{analysis.ticker} is showing a {analysis.direction.toLowerCase()} educational probability profile. The stock price is {analysis.dataMode === "live" ? "coming from Alpaca market data" : "using demo fallback data"}. The options contract and probability scoring remain educational estimates until the live options chain is connected.</p><div className="actions" style={{marginTop:14}}><button className="primary" onClick={saveIdea}>{saved ? "Saved" : "Save to Journal"}</button><Link className="pill" href="/journal">Open Journal</Link></div></section>
             <section className="panel"><div className="kicker">Scoring engine</div><div className="scoreGrid">{Object.entries(analysis.scores).map(([label,value]) => <div className="metric" key={label}><div className="label">{label}</div><div className="value">{value}</div><div className="bar"><div className="fill" style={{width:`${value}%`}} /></div></div>)}</div></section>
             <section className="panel"><div className="kicker">Recommended contract</div><div className="contract"><div><h3>{analysis.contract}</h3><p className="subtle">Estimated premium {money(analysis.premium)} · demo delta {(analysis.direction === "Bearish" ? -0.48 : 0.52).toFixed(2)} · OI {(12000 + seed(analysis.ticker) * 32).toLocaleString()}</p></div><strong className="green">{money(analysis.premium)}</strong></div></section>
           </section>
