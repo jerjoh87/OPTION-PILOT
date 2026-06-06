@@ -72,7 +72,7 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
   url.searchParams.set("limit", "100");
   url.searchParams.set("adjustment", "raw");
   url.searchParams.set("feed", "iex");
-  url.searchParams.set("sort", "asc");
+  url.searchParams.set("sort", "desc");
 
   try {
     const response = await fetch(url, {
@@ -91,7 +91,9 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
     }
 
     const data = await response.json() as { bars?: Array<{ t: string; o: number; h: number; l: number; c: number; v: number }> };
-    const candles = (data.bars ?? []).map((bar) => ({ timestamp: bar.t, open: bar.o, high: bar.h, low: bar.l, close: bar.c, volume: bar.v }));
+    const candles = (data.bars ?? [])
+      .map((bar) => ({ timestamp: bar.t, open: bar.o, high: bar.h, low: bar.l, close: bar.c, volume: bar.v }))
+      .reverse();
 
     if (!candles.length) {
       return NextResponse.json(demoPayload(ticker, timeframe, "Alpaca returned no bars for this ticker/timeframe. Showing demo fallback."));
